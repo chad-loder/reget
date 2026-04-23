@@ -197,6 +197,13 @@ def test_deserialize_invalid_json() -> None:
         deserialize(header)
 
 
+def test_deserialize_json_not_utf8() -> None:
+    bad_json = b"\xff\xfe\xfd"
+    header = len(bad_json).to_bytes(4, "big") + bad_json
+    with pytest.raises(ControlFileError, match=r"not utf-8"):
+        deserialize(header)
+
+
 def test_deserialize_json_array_not_object() -> None:
     arr = b"[1,2,3]"
     header = len(arr).to_bytes(4, "big") + arr

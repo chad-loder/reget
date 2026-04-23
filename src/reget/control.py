@@ -21,11 +21,12 @@ from typing import cast
 
 from bitarray import bitarray
 
-from reget.alloc import AllocationOutcome, Mechanism
 from reget._types import ETag, Url, parse_etag, parse_url
+from reget.alloc import AllocationOutcome, Mechanism
 
 CTRL_VERSION = 1
 _HEADER_LEN_BYTES = 4
+_JSON_ENCODING = "utf-8"  # explicit JSON text encoding for the length-prefixed metadata blob
 
 _KNOWN_ALLOC_OUTCOMES: frozenset[str] = frozenset(m.value for m in AllocationOutcome)
 _KNOWN_ALLOC_MECHANISMS: frozenset[str] = frozenset(m.value for m in Mechanism)
@@ -75,13 +76,19 @@ def ctrl_path_for(part_path: Path) -> Path:
 
 
 def serialize(meta: ControlMeta, done: bitarray) -> bytes:
-    """Encode a control file as raw bytes (header-length + JSON + bitfield)."""
-    meta_bytes = json.dumps(meta.to_dict(), separators=(",", ":")).encode("utf-8")
+    """Encode a control file as raw bytes (header-length + JSON + bitfield).
+
+    JSON metadata is :func:`json.dumps` then :meth:`str.encode` with
+    :data:`_JSON_ENCODING`; :func:`deserialize` decodes with the same encoding
+    before :func:`json.loads`.
+    """
+    meta_text = json.dumps(meta.to_dict(), separators=(",", ":"), ensure_ascii=False)
+    meta_bytes = meta_text.encode(_JSON_ENCODING)
     bf_bytes = done.tobytes()
     return len(meta_bytes).to_bytes(_HEADER_LEN_BYTES, "big") + meta_bytes + bf_bytes
 
 
-def deserialize(data: bytes) -> ControlFile:
+def deserialize(data: bytes) -> ControlFile:  # noqa: PLR0912, PLR0915 - structural validator
     """Decode raw bytes into a ``ControlFile``.
 
     Raises ``ControlFileError`` on truncated, corrupt, or version-incompatible
@@ -96,8 +103,11 @@ def deserialize(data: bytes) -> ControlFile:
 
     json_bytes = data[_HEADER_LEN_BYTES : _HEADER_LEN_BYTES + json_len]
     try:
-        loaded = json.loads(json_bytes)
-    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        meta_text = json_bytes.decode(_JSON_ENCODING)
+        loaded = json.loads(meta_text)
+    except UnicodeDecodeError as exc:
+        raise ControlFileError(f"corrupt JSON header (not {_JSON_ENCODING}): {exc}") from exc
+    except json.JSONDecodeError as exc:
         raise ControlFileError(f"corrupt JSON header: {exc}") from exc
 
     if not isinstance(loaded, dict):
