@@ -25,7 +25,7 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: uv.lock
-          python-version: "3.13"
+          python-version: "3.14"
       - name: Install project
         run: uv sync --frozen --all-groups
       - name: ruff check
@@ -34,17 +34,17 @@ jobs:
         run: uv run ruff format --check
       - name: mypy
         run: uv run mypy src tests
+      - name: pyright
+        run: uv run pyright
 
-  test:
-    name: Test (${{ matrix.os }} / Python ${{ matrix.python-version }})
+  test-stable:
+    name: Test (ubuntu / Python ${{ matrix.python-version }})
     needs: [lint]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        # Windows excluded until we track down failures; branch protection uses these jobs.
-        os: [ubuntu-latest, macos-latest]
-        python-version: ["3.12", "3.13"]
+        python-version: ["3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
       - name: Set up uv
@@ -58,10 +58,28 @@ jobs:
       - name: pytest
         run: uv run pytest --cov=reget --cov-report=xml --cov-report=term
 
+  test-prospective:
+    name: Test (ubuntu / Python 3.15-dev, experimental)
+    needs: [lint]
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: "3.15-dev"
+      - name: Install project
+        # Unfrozen: lock may not yet resolve for pre-release interpreters.
+        run: uv sync --all-groups
+      - name: pytest
+        run: uv run pytest --cov=reget --cov-report=xml --cov-report=term
+
   build:
     name: Build sdist + wheel
     runs-on: ubuntu-latest
-    needs: [lint, test]
+    needs: [lint, test-stable]
     steps:
       - uses: actions/checkout@v4
       - name: Set up uv
