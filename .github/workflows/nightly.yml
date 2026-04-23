@@ -1,0 +1,64 @@
+name: Nightly
+
+on:
+  schedule:
+    - cron: "17 4 * * *" # 04:17 UTC daily; off-peak so we don't share a slot
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly
+  cancel-in-progress: true
+
+jobs:
+  nightly:
+    name: Build & publish dev release
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/reget
+    permissions:
+      id-token: write # Trusted Publishing (OIDC)
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Stamp dev version into pyproject.toml
+        id: ver
+        shell: python
+        run: |
+          import datetime as dt
+          import os
+          import pathlib
+          import re
+          import tomllib
+
+          p = pathlib.Path("pyproject.toml")
+          txt = p.read_text()
+          base = tomllib.loads(txt)["project"]["version"]
+          stamp = dt.datetime.now(dt.UTC).strftime("%Y%m%d")
+          dev = f"{base}.dev{stamp}"
+          new = re.sub(r'^version = "[^"]+"', f'version = "{dev}"', txt, count=1, flags=re.M)
+          p.write_text(new)
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"dev={dev}\n")
+          print(f"::notice::Stamped reget=={dev}")
+
+      - name: Build
+        run: uv build
+
+      - name: Check distribution metadata
+        run: uvx twine check dist/*
+
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          attestations: true
+          skip-existing: true
