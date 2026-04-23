@@ -77,21 +77,24 @@ def _validate_content_range(
     expected_length: ByteLength,
     expected_total: int,
 ) -> None:
-    """Validate that a 206 response's ``Content-Range`` fully matches our request.
+    """Validate a 206 ``Content-Range`` for the **legacy HEAD-first** pipeline.
 
-    Checks both the ``bytes start-end/`` prefix *and* the ``/TOTAL`` field.
-    A mismatch on either side means the server has a different view of the
-    resource than we pinned at HEAD time — cluster skew, stale cache, or
-    a rewriting middleware — and the response must not be trusted.
+    Compares the full header string to ``bytes {start}-{end}/{expected_total}``.
+    ``expected_total`` is the tracker size pinned from **HEAD** ``Content-Length``
+    during :meth:`PieceDownloader.prepare`.
+
+    **Not** used for optimistic GET + growth (plan §1.1): there the instance
+    length may be ``*`` until the server publishes ``/N``; validation must be
+    parse-driven and **mode-aware** (``GROWING_UNKNOWN_TOTAL`` vs
+    ``FIXED_KNOWN_TOTAL``) instead of rejecting ``/*`` against a HEAD pin.
     """
     cr = headers.get("Content-Range")
     if not cr:
         raise ContentRangeError("206 response missing Content-Range header")
     end = expected_offset + expected_length - 1
     expected = f"bytes {expected_offset}-{end}/{expected_total}"
-    # Allow ``/*`` as the total only when the server legitimately doesn't
-    # know; but since we pinned ``total`` from HEAD, treat ``*`` as a
-    # mismatch too — we can't reconcile an unknown total against a known one.
+    # Legacy behavior: HEAD gave a definite total, so ``bytes a-b/*`` is treated
+    # as a mismatch. Optimistic GET (plan §1) accepts ``/*`` in growth mode.
     if cr != expected:
         raise ContentRangeError(f"Content-Range mismatch: got {cr!r}, expected {expected!r}")
 
@@ -172,7 +175,15 @@ def _extract_server_meta(resp: TransportResponse) -> ServerMeta:
 
 @dataclass(frozen=True, slots=True)
 class ProgressUpdate:
-    """Snapshot of download progress emitted via callback."""
+    """Snapshot of download progress emitted via :data:`ProgressCallback`.
+
+    The callback runs **synchronously** on the **same thread** that called
+    :meth:`PieceDownloader.download_piece` for the work unit that just
+    completed (piece mode or 200 sequential fallback). There is no internal
+    thread pool; if several threads call :meth:`~PieceDownloader.download_piece`,
+    each may receive callbacks on its own thread. :meth:`~PieceDownloader.prepare`
+    and :meth:`~PieceDownloader.finalize` do **not** invoke this callback.
+    """
 
     piece_index: PieceIndex
     """Index of the piece that was just successfully completed."""
@@ -196,6 +207,7 @@ class ProgressUpdate:
     """Value from :meth:`TransportSession.opaque_progress_handle` (opaque to the engine)."""
 
 
+# Invoked synchronously on the thread that ran download_piece (see ProgressUpdate).
 ProgressCallback = Callable[[ProgressUpdate], None]
 
 
@@ -210,6 +222,11 @@ class PieceDownloader:
         while not pd.is_complete():
             pd.download_piece(transport)   # or call from N threads
         result = pd.finalize()
+
+    If ``on_progress`` is set, it is called from each
+    :meth:`~PieceDownloader.download_piece` caller thread as pieces complete
+    (never from :meth:`~PieceDownloader.prepare` / :meth:`~PieceDownloader.finalize`).
+    Callbacks must be cheap or offload work themselves (e.g. queue to a UI thread).
     """
 
     def __init__(

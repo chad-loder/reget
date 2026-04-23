@@ -38,9 +38,7 @@ class _CMResponse:
     ) -> None:
         self.status_code = status_code
         if headers is not None:
-            self.headers = (
-                headers if isinstance(headers, CaseInsensitiveDict) else CaseInsensitiveDict(headers)
-            )
+            self.headers = headers if isinstance(headers, CaseInsensitiveDict) else CaseInsensitiveDict(headers)
         else:
             self.headers = CaseInsensitiveDict()
         self._iter_chunks = chunks

@@ -164,10 +164,12 @@ def test_allocate_file_already_sized_skips_posix_fallocate(
         os.close(fd)
 
     called: list[int] = []
+    _real_posix_fallocate = getattr(os, "posix_fallocate", None)
 
     def counting_fallocate(f: int, off: int, ln: int) -> None:
         called.append(1)
-        os.posix_fallocate(f, off, ln)
+        if _real_posix_fallocate is not None:
+            _real_posix_fallocate(f, off, ln)
 
     monkeypatch.setattr(os, "posix_fallocate", counting_fallocate, raising=False)
 

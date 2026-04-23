@@ -232,6 +232,11 @@ while not pd.is_complete():
 
 You can also pass ``on_progress=...`` to ``PieceDownloader`` for
 per-piece callbacks; polling remains useful for coarse UI updates.
+The callback runs **on the same thread** that called ``download_piece``
+(synchronously, as each piece completes); there is no internal thread
+pool. Use a queue or your UI toolkit’s “invoke later” if updates must
+hit the main thread. ``prepare`` and ``finalize`` do not call
+``on_progress``.
 
 ## Lifecycle and cleanup
 

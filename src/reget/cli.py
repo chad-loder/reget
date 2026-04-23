@@ -337,21 +337,21 @@ def build_native_http_client(args: argparse.Namespace) -> SupportedNativeHttpSes
     if backend == "niquests":
         import niquests
 
-        session = niquests.Session()
+        ni_sess = niquests.Session()
         if args.proxy:
-            session.proxies = {"http": args.proxy, "https": args.proxy}
+            ni_sess.proxies = {"http": args.proxy, "https": args.proxy}
         if args.insecure:
-            session.verify = False
-        return session
+            ni_sess.verify = False
+        return ni_sess
     if backend == "requests":
         import requests
 
-        session = requests.Session()
+        rq_sess = requests.Session()
         if args.proxy:
-            session.proxies = {"http": args.proxy, "https": args.proxy}
+            rq_sess.proxies = {"http": args.proxy, "https": args.proxy}
         if args.insecure:
-            session.verify = False
-        return session
+            rq_sess.verify = False
+        return rq_sess
     if backend == "httpx":
         import httpx
 
@@ -494,8 +494,7 @@ def main(argv: Sequence[str] | None = None) -> int:  # noqa: PLR0911, PLR0912, P
 
     if importlib.util.find_spec(args.http_backend) is None:
         printer.err(
-            f"HTTP backend {args.http_backend!r} is not installed. "
-            f"Try: pip install reget[{args.http_backend}]",
+            f"HTTP backend {args.http_backend!r} is not installed. Try: pip install reget[{args.http_backend}]",
         )
         return EXIT_ERROR
 
@@ -538,12 +537,12 @@ def main(argv: Sequence[str] | None = None) -> int:  # noqa: PLR0911, PLR0912, P
                 except OSError as exc:
                     printer.err(f"i/o error during preparation: {exc}")
                     return EXIT_ERROR
-    
+
                 tracker = pd.tracker
                 if tracker is None:
                     printer.err("preparation failed (no tracker)")
                     return EXIT_ERROR
-    
+
                 done_pieces, total_pieces = tracker.progress()
                 alloc_suffix = (
                     f", alloc={tracker.allocation.outcome.value}/{tracker.allocation.mechanism.value}"
@@ -557,7 +556,7 @@ def main(argv: Sequence[str] | None = None) -> int:  # noqa: PLR0911, PLR0912, P
                 )
                 if done_pieces > 0:
                     printer.info(f"resuming: {done_pieces}/{total_pieces} pieces already complete")
-    
+
                 while not pd.is_complete():
                     if interrupt.is_set:
                         if not announced_interrupt:
@@ -585,11 +584,11 @@ def main(argv: Sequence[str] | None = None) -> int:  # noqa: PLR0911, PLR0912, P
                     except OSError as exc:
                         printer.err(f"i/o error during download: {exc}")
                         return EXIT_ERROR
-    
+
                     if not progressed:
                         time.sleep(_IDLE_SLEEP_SECS)
                         continue
-    
+
                     now = time.monotonic()
                     if now - last_tick >= _BAR_TICK_SECS:
                         elapsed = now - t_start
@@ -598,14 +597,14 @@ def main(argv: Sequence[str] | None = None) -> int:  # noqa: PLR0911, PLR0912, P
                         speed = pd.bytes_written / elapsed if elapsed > 0 else 0.0
                         printer.bar(approx_bytes, tracker.total_length, speed)
                         last_tick = now
-    
+
                 printer.end_bar()
-    
+
                 if interrupt.is_set and not pd.is_complete():
                     d, t = tracker.progress()
                     printer.info(f"interrupted at {d}/{t} pieces; resume state saved to {dest.name}.part.ctrl")
                     return EXIT_INTERRUPTED
-    
+
                 try:
                     result = pd.finalize()
                 except OSError as exc:
