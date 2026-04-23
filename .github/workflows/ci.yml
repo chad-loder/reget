@@ -25,6 +25,7 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: uv.lock
+          python-version: "3.13"
       - name: Install project
         run: uv sync --frozen --all-groups
       - name: ruff check
@@ -36,6 +37,7 @@ jobs:
 
   test:
     name: Test (${{ matrix.os }} / Python ${{ matrix.python-version }})
+    needs: [lint]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
