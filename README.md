@@ -1,6 +1,7 @@
 # reget
 
 [![CI](https://github.com/chad-loder/reget/actions/workflows/ci.yml/badge.svg)](https://github.com/chad-loder/reget/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/chad-loder/reget/graph/badge.svg)](https://codecov.io/gh/chad-loder/reget)
 [![PyPI](https://img.shields.io/pypi/v/reget.svg)](https://pypi.org/project/reget/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
