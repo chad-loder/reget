@@ -42,7 +42,7 @@ jobs:
         with:
           ref: ${{ needs.release-please.outputs.tag_name }}
       - name: Set up uv
-        uses: astral-sh/setup-uv@v8
+        uses: astral-sh/setup-uv@v8.1.0
         with:
           enable-cache: true
       - name: Build
