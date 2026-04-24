@@ -69,10 +69,13 @@ jobs:
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
+      - name: Install CPython 3.15-dev
+        uses: deadsnakes/action@v3.2.0
+        with:
+          python-version: "3.15-dev"
       - name: Install project
         # Unfrozen: lock may not yet resolve for pre-release interpreters.
-        # uv downloads the CPython 3.15-dev build itself.
-        run: uv sync --python 3.15-dev --python-preference only-managed --all-groups
+        run: uv sync --python 3.15-dev --all-groups
       - name: pytest
         run: uv run pytest --cov=reget --cov-report=xml --cov-report=term
 
