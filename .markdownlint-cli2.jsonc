@@ -1,0 +1,14 @@
+{
+  "$schema": "https://raw.githubusercontent.com/DavidAnson/markdownlint-cli2/v0.14.0/schema/markdownlint-cli2-config-schema.json",
+  "gitignore": true,
+  "config": {
+    "line-length": false,
+    "no-duplicate-header": true,
+    "first-line-heading": false,
+    "no-space-in-code": false,
+    "code-block-style": false,
+    "no-inline-html": {
+      "allowed_elements": ["details", "summary"]
+    }
+  }
+}

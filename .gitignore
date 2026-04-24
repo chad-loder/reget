@@ -1,0 +1,29 @@
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+*.part
+*.part.ctrl
+.env
+.DS_Store
+
+# Legacy archive (local reference only, not shipped)
+/src.old/
+/tests.old/
+/docs.old/
+
+# Not tracked in this repository (local notes, bundles, auxiliary scripts)
+/docs/
+/scripts/
+*.tgz
+AUDIT.md

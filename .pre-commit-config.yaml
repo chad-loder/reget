@@ -1,0 +1,43 @@
+default_language_version:
+  python: python3.12
+
+repos:
+  - repo: local
+    hooks:
+      - id: check-commit-signing
+        name: Require signed commits
+        entry: .githooks/check-commit-signing.sh
+        language: script
+        pass_filenames: false
+        always_run: true
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: check-added-large-files
+        args: [--maxkb=512]
+      - id: check-merge-conflict
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: mixed-line-ending
+        args: [--fix=lf]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.10
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/DavidAnson/markdownlint-cli2
+    # Renovate: comment tag → updates rev + comment in one PR
+    rev: da711fa8b30421506086eb2dc7ea0a6c3cb27b9f # v0.14.0
+    hooks:
+      - id: markdownlint-cli2
+      - id: markdownlint-cli2
+        alias: markdownlint-cli2-fix
+        args: ["--fix"]
+        stages: [manual]
