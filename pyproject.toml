@@ -119,6 +119,7 @@ select = [
     "B",
     "SIM",
     "C4",
+    "C90",
     "PIE",
     "T20",
     "BLE",
@@ -127,6 +128,8 @@ select = [
     "ERA",
     "PL",
     "PERF",
+    "FURB",
+    "TID",
     "RUF",
 ]
 ignore = [
@@ -135,6 +138,15 @@ ignore = [
     "PLR0913",
 ]
 unfixable = ["F401"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.pylint]
+max-args = 5
+max-branches = 12
+max-statements = 50
+max-returns = 6
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
@@ -145,8 +157,8 @@ section-order = ["future", "standard-library", "third-party", "first-party", "lo
 known-first-party = ["reget"]
 
 [tool.ruff.lint.per-file-ignores]
-"**/test_*.py" = ["D103", "PLR2004", "N802"]
-"**/conftest.py" = ["D103", "N802"]
+"**/test_*.py" = ["C901", "D103", "PLR2004", "N802"]
+"**/conftest.py" = ["C901", "D103", "N802"]
 "scripts/alloc_validation/**" = ["T20", "PLR0915", "PLR2004"]
 
 [tool.ruff.format]

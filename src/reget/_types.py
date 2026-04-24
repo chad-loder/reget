@@ -74,7 +74,7 @@ def parse_etag(raw: object) -> ETag:
     stripped = raw.strip()
     if not stripped:
         return EMPTY_ETAG
-    candidate = stripped[2:] if stripped.startswith("W/") else stripped
+    candidate = stripped.removeprefix("W/")
     if len(candidate) < _MIN_QUOTED_ETAG_LEN or not candidate.startswith('"') or not candidate.endswith('"'):
         return EMPTY_ETAG
     return ETag(stripped)

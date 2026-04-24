@@ -51,7 +51,7 @@ class ContentRange:
         return self.end - self.start + 1
 
 
-def parse_content_range(raw: str) -> ContentRange:
+def parse_content_range(raw: str) -> ContentRange:  # noqa: C901
     """Parse a Content-Range header value.
 
     Raises :class:`ContentRangeParseError` on invalid or ambiguous input.
