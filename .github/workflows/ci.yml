@@ -19,9 +19,9 @@ jobs:
     name: Lint & type check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Set up uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v8
         with:
           enable-cache: true
           cache-dependency-glob: uv.lock
@@ -46,9 +46,9 @@ jobs:
       matrix:
         python-version: ["3.12", "3.13", "3.14"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Set up uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v8
         with:
           enable-cache: true
           cache-dependency-glob: uv.lock
@@ -64,9 +64,9 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Set up uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v8
         with:
           enable-cache: true
       - name: Install CPython 3.15-dev
@@ -75,7 +75,7 @@ jobs:
           python-version: "3.15-dev"
       - name: Install project
         # Unfrozen: lock may not yet resolve for pre-release interpreters.
-        run: uv sync --python 3.15-dev --all-groups
+        run: uv sync --python python3.15 --all-groups
       - name: pytest
         run: uv run pytest --cov=reget --cov-report=xml --cov-report=term
 
@@ -84,9 +84,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [lint, test-stable]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Set up uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v8
         with:
           enable-cache: true
       - name: Build
@@ -96,7 +96,7 @@ jobs:
           uv tool install twine
           uvx twine check dist/*
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/
