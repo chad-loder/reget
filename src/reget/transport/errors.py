@@ -15,7 +15,7 @@ class TransportError(RegetError):
 
 
 class TransportConnectionError(TransportError, ConnectionError):
-    """Network-level failure (DNS, refused connection, reset, timeout, …).
+    """Network-level failure (DNS, refused connection, reset, timeout, ...).
 
     Subclasses builtin :exc:`ConnectionError` (and thus :exc:`OSError`) as well as
     :class:`TransportError`.

@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Iterator, Mapping
 from contextlib import asynccontextmanager, contextmanager
-from typing import TypedDict, cast
+from typing import cast
 
 import niquests
 import niquests.exceptions as _niquests_exceptions
 
 from reget._types import Url
+from reget.transport._http_common import request_options_to_requests_like_kwargs, transport_header_pairs
 from reget.transport._requests_like_error_map import map_requests_like_transport_errors
 from reget.transport.protocols import (
     AsyncTransportResponse,
@@ -20,45 +21,13 @@ from reget.transport.protocols import (
 from reget.transport.types import TransportHeaders, TransportRequestOptions
 
 
-def _header_value_to_str(value: object, default: str = "") -> str:
-    if value is None:
-        return default
-    if isinstance(value, bytes):
-        return value.decode("latin-1")
-    return str(value)
-
-
-def headers_from_niquests_response(resp: niquests.Response) -> TransportHeaders:
-    """Build :class:`TransportHeaders` from a niquests response."""
-    pairs: list[tuple[str, str]] = []
+def headers_from_niquests_response(
+    resp: niquests.Response | niquests.AsyncResponse,
+) -> TransportHeaders:
+    """Build :class:`TransportHeaders` from a niquests sync or async response."""
     hdr = resp.headers
-    for key_obj in hdr:
-        k = str(key_obj)
-        v_raw: object = hdr[key_obj]
-        v = _header_value_to_str(v_raw).strip()
-        pairs.append((k, v))
+    pairs = transport_header_pairs((k, hdr[k]) for k in hdr)
     return TransportHeaders.from_pairs(pairs)
-
-
-class _NiquestsRequestKwargs(TypedDict, total=False):
-    timeout: float | tuple[float, float]
-    verify: bool
-    allow_redirects: bool
-
-
-def _request_options_to_niquests_kwargs(
-    options: TransportRequestOptions | None,
-) -> _NiquestsRequestKwargs:
-    if options is None:
-        return {}
-    kw: _NiquestsRequestKwargs = {}
-    if options.timeout is not None:
-        kw["timeout"] = options.timeout
-    if options.verify is not None:
-        kw["verify"] = options.verify
-    if options.allow_redirects is not None:
-        kw["allow_redirects"] = options.allow_redirects
-    return kw
 
 
 # ---------------------------------------------------------------------------
@@ -110,7 +79,7 @@ class NiquestsAdapter:
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
     ) -> Iterator[TransportResponse]:
-        kwargs = _request_options_to_niquests_kwargs(options)
+        kwargs = request_options_to_requests_like_kwargs(options)
         with (
             map_requests_like_transport_errors(_niquests_exceptions),
             self._session.get(url, headers=dict(headers), stream=True, **kwargs) as resp,
@@ -144,14 +113,7 @@ class AsyncNiquestsTransportResponse(AsyncTransportResponse):
     @property
     def headers(self) -> TransportHeaders:
         if self._headers is None:
-            pairs: list[tuple[str, str]] = []
-            hdr = self._resp.headers
-            for key_obj in hdr:
-                k = str(key_obj)
-                v_raw: object = hdr[key_obj]
-                v = _header_value_to_str(v_raw).strip()
-                pairs.append((k, v))
-            self._headers = TransportHeaders.from_pairs(pairs)
+            self._headers = headers_from_niquests_response(self._resp)
         return self._headers
 
     def raise_for_status(self) -> None:
@@ -180,7 +142,7 @@ class AsyncNiquestsAdapter:
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
     ) -> AsyncIterator[AsyncTransportResponse]:
-        kwargs = _request_options_to_niquests_kwargs(options)
+        kwargs = request_options_to_requests_like_kwargs(options)
         with map_requests_like_transport_errors(_niquests_exceptions):
             resp = await self._session.get(url, headers=dict(headers), stream=True, **kwargs)
             try:

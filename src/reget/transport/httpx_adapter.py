@@ -9,6 +9,7 @@ from typing import TypedDict
 import httpx
 
 from reget._types import Url
+from reget.transport._http_common import transport_header_pairs
 from reget.transport.errors import (
     TransportConnectionError,
     TransportError,
@@ -24,22 +25,9 @@ from reget.transport.protocols import (
 from reget.transport.types import TransportHeaders, TransportRequestOptions
 
 
-def _header_value_to_str(value: object, default: str = "") -> str:
-    if value is None:
-        return default
-    if isinstance(value, bytes):
-        return value.decode("latin-1")
-    return str(value)
-
-
 def headers_from_httpx_response(resp: httpx.Response) -> TransportHeaders:
     """Build :class:`TransportHeaders` from an httpx response (multi-value safe)."""
-    pairs: list[tuple[str, str]] = []
-    for raw_key, raw_val in resp.headers.multi_items():
-        k = str(raw_key)
-        v = _header_value_to_str(raw_val).strip()
-        pairs.append((k, v))
-    return TransportHeaders.from_pairs(pairs)
+    return TransportHeaders.from_pairs(transport_header_pairs(resp.headers.multi_items()))
 
 
 @contextmanager

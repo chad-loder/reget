@@ -4,54 +4,20 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
-from typing import TypedDict
 
 import requests
 import requests.exceptions as _requests_exceptions
 
 from reget._types import Url
+from reget.transport._http_common import request_options_to_requests_like_kwargs, transport_header_pairs
 from reget.transport._requests_like_error_map import map_requests_like_transport_errors
 from reget.transport.protocols import TransportResponse, TransportSession
 from reget.transport.types import TransportHeaders, TransportRequestOptions
 
 
-def _header_value_to_str(value: object, default: str = "") -> str:
-    if value is None:
-        return default
-    if isinstance(value, bytes):
-        return value.decode("latin-1")
-    return str(value)
-
-
 def headers_from_requests_response(resp: requests.Response) -> TransportHeaders:
     """Build :class:`TransportHeaders` from a requests response."""
-    pairs: list[tuple[str, str]] = []
-    for raw_key, raw_val in resp.headers.items():
-        k = str(raw_key)
-        v = _header_value_to_str(raw_val).strip()
-        pairs.append((k, v))
-    return TransportHeaders.from_pairs(pairs)
-
-
-class _RequestsRequestKwargs(TypedDict, total=False):
-    timeout: float | tuple[float, float]
-    verify: bool
-    allow_redirects: bool
-
-
-def _request_options_to_requests_kwargs(
-    options: TransportRequestOptions | None,
-) -> _RequestsRequestKwargs:
-    if options is None:
-        return {}
-    kw: _RequestsRequestKwargs = {}
-    if options.timeout is not None:
-        kw["timeout"] = options.timeout
-    if options.verify is not None:
-        kw["verify"] = options.verify
-    if options.allow_redirects is not None:
-        kw["allow_redirects"] = options.allow_redirects
-    return kw
+    return TransportHeaders.from_pairs(transport_header_pairs(resp.headers.items()))
 
 
 class RequestsTransportResponse(TransportResponse):
@@ -98,7 +64,7 @@ class RequestsAdapter:
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
     ) -> Iterator[TransportResponse]:
-        kwargs = _request_options_to_requests_kwargs(options)
+        kwargs = request_options_to_requests_like_kwargs(options)
         with (
             map_requests_like_transport_errors(_requests_exceptions),
             self._session.get(url, headers=dict(headers), stream=True, **kwargs) as resp,

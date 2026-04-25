@@ -51,10 +51,8 @@ class TransportHeaders:
 
         Preserves duplicate names and order for :meth:`get_all`.
         """
-        items: list[tuple[str, str]] = []
-        for raw_name, raw_value in pairs:
-            items.append((_norm_header_name(raw_name), _norm_header_value(raw_value)))
-        return cls(_TRANSPORT_HEADERS_INIT, tuple(items))
+        items = tuple((_norm_header_name(n), _norm_header_value(v)) for n, v in pairs)
+        return cls(_TRANSPORT_HEADERS_INIT, items)
 
     @classmethod
     def from_mapping(cls, mapping: Mapping[str, str]) -> TransportHeaders:

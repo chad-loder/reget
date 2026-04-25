@@ -10,6 +10,7 @@ import urllib3
 import urllib3.exceptions as _urllib3_exceptions
 
 from reget._types import Url
+from reget.transport._http_common import transport_header_pairs
 from reget.transport.errors import (
     TransportConnectionError,
     TransportError,
@@ -22,22 +23,10 @@ from reget.transport.types import TransportHeaders, TransportRequestOptions
 _HTTP_400 = 400
 
 
-def _header_value_to_str(value: object, default: str = "") -> str:
-    if value is None:
-        return default
-    if isinstance(value, bytes):
-        return value.decode("latin-1")
-    return str(value)
-
-
 def headers_from_urllib3_response(resp: urllib3.HTTPResponse) -> TransportHeaders:
     """Build :class:`TransportHeaders` from a urllib3 response (multi-value safe)."""
-    pairs: list[tuple[str, str]] = []
-    for raw_key in resp.headers:
-        for raw_val in resp.headers.getlist(raw_key):
-            k = str(raw_key)
-            v = _header_value_to_str(raw_val).strip()
-            pairs.append((k, v))
+    h = resp.headers
+    pairs = transport_header_pairs((name, val) for name in h for val in h.getlist(name))
     return TransportHeaders.from_pairs(pairs)
 
 
