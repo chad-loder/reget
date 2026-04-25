@@ -3,6 +3,7 @@
 from reget._types import (
     ContentRangeError,
     ControlFileError,
+    DestinationError,
     DownloadComplete,
     DownloadPartial,
     DownloadResult,
@@ -21,6 +22,7 @@ from reget._version import __version__
 __all__ = [
     "ContentRangeError",
     "ControlFileError",
+    "DestinationError",
     "DownloadComplete",
     "DownloadPartial",
     "DownloadResult",

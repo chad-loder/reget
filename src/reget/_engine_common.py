@@ -16,6 +16,7 @@ from pathlib import Path
 
 from reget._types import (
     ControlFileError,
+    DestinationError,
     DownloadComplete,
     DownloadPartial,
     DownloadResult,
@@ -28,6 +29,7 @@ from reget._types import (
 )
 from reget.alloc import allocate_file
 from reget.content_range import parse_content_range
+from reget.fs import path_fits
 from reget.headers import DEFAULT_HEADERS, merge_headers
 from reget.persist import (
     CTRL_VERSION,
@@ -87,6 +89,10 @@ def prepare_fetch(dest: str | Path, url: str) -> PreparedFetch:
     """Read checkpoint, build request headers, return immutable context."""
     t0 = time.monotonic()
     dest_path = Path(dest)
+
+    if not path_fits(dest_path):
+        raise DestinationError(f"destination path is too long for sidecar files: {dest_path}")
+
     parsed_url = parse_url(url)
     part_path = dest_path.with_suffix(dest_path.suffix + ".part")
     ctrl_path = ctrl_path_for(part_path)

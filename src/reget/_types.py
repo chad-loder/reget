@@ -153,6 +153,10 @@ class ContentRangeError(RegetError):
     """Content-Range header doesn't match the expected range boundaries."""
 
 
+class DestinationError(RegetError):
+    """The destination path cannot accommodate sidecar files (``.part``, ``.part.ctrl``)."""
+
+
 class ControlFileError(RegetError):
     """The control file is corrupt, unreadable, or inconsistent with the part file."""
 
