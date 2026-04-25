@@ -104,6 +104,56 @@ exclude-newer = "48h"
 gitignore = true
 config = { "line-length" = false, "no-duplicate-header" = true, "first-line-heading" = false, "no-space-in-code" = false, "code-block-style" = false, "no-inline-html" = { "allowed_elements" = ["details", "summary"] } }
 
+# rumdl -- fast Rust markdown linter.  `uvx rumdl check .`
+[tool.rumdl]
+respect-gitignore = true
+exclude = [".git", "node_modules", "dist", "build"]
+
+[tool.rumdl.MD003]
+style = "atx"
+
+[tool.rumdl.MD004]
+style = "dash"
+
+[tool.rumdl.MD013]
+line-length = 150
+code-blocks = false
+tables = false
+headings = false
+
+[tool.rumdl.MD024]
+siblings-only = true
+
+[tool.rumdl.MD026]
+punctuation = ".,;:!"
+
+[tool.rumdl.MD033]
+allowed-elements = ["details", "summary", "br"]
+
+[tool.rumdl.MD041]
+front-matter-title = "title"
+
+[tool.rumdl.MD044]
+names = ["reget", "Python", "GitHub"]
+code-blocks = false
+
+[tool.rumdl.per-file-ignores]
+".github/PULL_REQUEST_TEMPLATE.md" = ["MD041"]
+"SECURITY.md" = ["MD036"]
+"README.md" = ["MD044"]
+
+[tool.rumdl.MD046]
+style = "fenced"
+
+[tool.rumdl.MD048]
+style = "backtick"
+
+[tool.rumdl.MD049]
+style = "asterisk"
+
+[tool.rumdl.MD050]
+style = "asterisk"
+
 [tool.ruff]
 line-length = 120
 target-version = "py312"
