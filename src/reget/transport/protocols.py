@@ -24,6 +24,7 @@ from reget.transport.types import TransportHeaders, TransportRequestOptions
 class TransportResponse(Protocol):
     """Read-only HTTP response: status, normalized headers, raw body iterator."""
 
+    # CPD-OFF: mirror AsyncTransportResponse; keep protocols flat (no inheritance)
     @property
     def status_code(self) -> int:
         """HTTP status line code (e.g. 200, 206, 416)."""
@@ -37,6 +38,8 @@ class TransportResponse(Protocol):
     def raise_for_status(self) -> None:
         """Raise an error if the response status is a client or server error."""
         ...
+
+    # CPD-ON
 
     def iter_raw_bytes(self, *, chunk_size: int) -> Iterator[bytes]:
         """Yield raw entity-body chunks (post-TE, pre-CE).
@@ -50,6 +53,7 @@ class TransportResponse(Protocol):
 class TransportSession(Protocol):
     """Sync session: one method (``stream_get``), no lifecycle, no mutation."""
 
+    # CPD-OFF: mirror AsyncTransportSession; keep protocols flat (no inheritance)
     def stream_get(
         self,
         url: Url,
@@ -59,6 +63,8 @@ class TransportSession(Protocol):
     ) -> AbstractContextManager[TransportResponse]:
         """Context manager yielding a response whose body must be streamed."""
         ...
+
+    # CPD-ON
 
 
 # ---------------------------------------------------------------------------
@@ -70,6 +76,7 @@ class TransportSession(Protocol):
 class AsyncTransportResponse(Protocol):
     """Async equivalent of :class:`TransportResponse`."""
 
+    # CPD-OFF: mirror TransportResponse; keep protocols flat (no inheritance)
     @property
     def status_code(self) -> int:
         """HTTP status line code (e.g. 200, 206, 416)."""
@@ -84,6 +91,8 @@ class AsyncTransportResponse(Protocol):
         """Raise an error if the response status is a client or server error."""
         ...
 
+    # CPD-ON
+
     def aiter_raw_bytes(self, *, chunk_size: int) -> AsyncIterator[bytes]:
         """Async version of :meth:`TransportResponse.iter_raw_bytes`."""
         ...
@@ -93,6 +102,7 @@ class AsyncTransportResponse(Protocol):
 class AsyncTransportSession(Protocol):
     """Async equivalent of :class:`TransportSession`."""
 
+    # CPD-OFF: mirror TransportSession; keep protocols flat (no inheritance)
     def stream_get(
         self,
         url: Url,
@@ -102,3 +112,5 @@ class AsyncTransportSession(Protocol):
     ) -> AbstractAsyncContextManager[AsyncTransportResponse]:
         """Async context manager yielding a response whose body must be streamed."""
         ...
+
+    # CPD-ON
