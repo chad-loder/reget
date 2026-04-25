@@ -38,12 +38,13 @@ jobs:
         run: uv run pyright
 
   test-stable:
-    name: Test (ubuntu / Python ${{ matrix.python-version }})
+    name: Test (${{ contains(matrix.os, 'windows') && 'windows' || 'ubuntu' }} / Python ${{ matrix.python-version }})
     needs: [lint]
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest, windows-latest]
         python-version: ["3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v6
@@ -58,8 +59,8 @@ jobs:
       - name: pytest
         run: uv run pytest --cov=reget --cov-report=xml --cov-report=term
       - name: Upload coverage to Codecov
-        if: matrix.python-version == '3.14'
-        uses: codecov/codecov-action@v5
+        if: matrix.python-version == '3.14' && matrix.os == 'ubuntu-latest'
+        uses: codecov/codecov-action@v6
         with:
           files: coverage.xml
 
@@ -74,6 +75,10 @@ jobs:
         uses: astral-sh/setup-uv@v8.1.0
         with:
           enable-cache: true
+          # Unique key: without this, default Python (≈3.12) matches the 3.12 matrix job in parallel
+          # and post "save cache" steps race: "Unable to reserve cache... another job may be creating".
+          cache-dependency-glob: uv.lock
+          cache-suffix: python-3.15-dev-experimental
       - name: Install CPython 3.15-dev
         uses: deadsnakes/action@v3.2.0
         with:
