@@ -23,6 +23,8 @@ htmlcov/
 /docs.old/
 
 # Not tracked in this repository (local notes, bundles, auxiliary scripts)
+# Docker uvx wrapper — canonical copy: ~/dev/reget-sandbox/sandbox-uvx
+/sandbox-uvx
 /docs/
 /scripts/
 *.tgz
