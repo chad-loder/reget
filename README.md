@@ -8,10 +8,15 @@
 Resumable HTTP downloads for Python. Crash-safe, transport-agnostic,
 cursor-based.
 
-`reget` takes a URL, an HTTP session you already own, and a destination path.
-It gives you a download that survives dropped connections, process crashes,
-and hard shutdowns without corruption. Call `fetch()` again with the same
-destination and it picks up where it left off.
+`reget` takes a URL, an HTTP session you already own, and a destination
+path. It works with
+[niquests](https://github.com/jawah/niquests),
+[httpx](https://github.com/encode/httpx),
+[requests](https://github.com/psf/requests), or
+[urllib3](https://github.com/urllib3/urllib3) — whichever you already
+have. It gives you a download that survives dropped connections, process
+crashes, and hard shutdowns without corruption. Call `fetch()` again with
+the same destination and it picks up where it left off.
 
 > **re-GET** — resumable HTTP GETs that actually resume correctly.
 
@@ -33,20 +38,30 @@ No hard dependency on any HTTP library. Pick one (or several) as extras.
 ## Quick start
 
 ```python
+from pathlib import Path
 from reget.engine import fetch
+from reget._types import DownloadComplete, DownloadPartial, Url, parse_url
 from reget.transport.niquests_adapter import NiquestsAdapter
 import niquests
+
+url = parse_url("https://example.com/big.zip")
+dest = Path("/tmp/big.zip")
 
 session = niquests.Session()
 adapter = NiquestsAdapter(session)
 
-result = fetch("/tmp/big.zip", session=adapter, url="https://example.com/big.zip")
-
-match result:
-    case DownloadComplete(sha256=sha, bytes_written=n):
-        print(f"done: {n} bytes, sha256={sha}")
-    case DownloadPartial(reason=reason):
-        print(f"incomplete: {reason} — call fetch() again to resume")
+MAX_RETRIES = 6
+for attempt in range(1, MAX_RETRIES + 1):
+    result = fetch(dest, session=adapter, url=url)
+    match result:
+        case DownloadComplete(sha256=sha):
+            size = dest.stat().st_size
+            print(f"done: {dest} ({size:,} bytes, sha256={sha[:16]}…)")
+            break
+        case DownloadPartial(bytes_written=bw, reason=reason):
+            print(f"attempt {attempt}/{MAX_RETRIES}: {reason} ({bw:,} bytes so far)")
+else:
+    print(f"gave up after {MAX_RETRIES} attempts, {result.bytes_written:,} bytes downloaded")
 ```
 
 `fetch()` returns a discriminated union: `DownloadComplete` (carrying
@@ -123,23 +138,25 @@ Writing a custom adapter means implementing `stream_get()` — a context
 manager that yields a response with `.status_code`, `.headers`, and
 `.iter_raw_bytes()`. See `protocols.py`.
 
-## Retry pattern
+## Retry with tenacity
+
+If you prefer a decorator-based retry policy:
 
 ```python
 from tenacity import retry, wait_exponential, stop_after_attempt
 from reget.engine import fetch
-from reget._types import DownloadComplete, DownloadPartial
+from reget._types import DownloadPartial
 
 @retry(wait=wait_exponential(min=2, max=60), stop=stop_after_attempt(6))
-def download(url: str, dest: str, session) -> None:
+def download(url, dest, session):
     result = fetch(dest, session=session, url=url)
     if isinstance(result, DownloadPartial):
         raise RuntimeError(f"incomplete: {result.reason}")
 ```
 
 Every raise re-enters the retry loop. Because `.part.ctrl` is durable,
-the next attempt resumes with zero re-downloaded bytes and zero
-coordination on your side.
+the next attempt resumes from the last flushed byte with zero
+re-downloaded data.
 
 ## Lifecycle
 
@@ -159,7 +176,7 @@ coordination on your side.
    position and stored ETag.
 2. Sends `Range: bytes=<cursor>-` with `If-Range: <etag>` (omitted
    when no ETag is stored).
-3. **206 Partial Content** — server honours the range. Stream appends
+3. **206 Partial Content** — server honors the range. Stream appends
    from the cursor.
 4. **200 OK** — server ignores the range (resource changed, or server
    doesn't support ranges). Cursor resets to 0; stream overwrites from
@@ -185,7 +202,7 @@ The engine handles each case without caller intervention.
 ## Development
 
 ```bash
-git clone https://github.com/reget/reget.git && cd reget
+git clone https://github.com/chad-loder/reget.git && cd reget
 uv sync --all-groups
 uv run pytest              # 210 tests, including live HTTP integration
 uv run ruff check          # lint
