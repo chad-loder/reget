@@ -18,6 +18,7 @@ import argparse
 import importlib.util
 import logging
 import os
+import re
 import signal
 import sys
 import threading
@@ -25,7 +26,7 @@ import time
 from enum import StrEnum
 from pathlib import Path
 from types import FrameType
-from typing import TYPE_CHECKING, Final, assert_never
+from typing import TYPE_CHECKING, Any, Final, assert_never
 from urllib.parse import urlparse
 
 from reget._types import (
@@ -54,19 +55,26 @@ _SEC_PER_MIN = 60
 _MIN_PER_HOUR = 60
 _MAX_RETRIES = 20
 
-_SIZE_SUFFIXES: dict[str, int] = {
-    "": 1,
-    "B": 1,
-    "K": 1024,
-    "KB": 1024,
-    "KIB": 1024,
-    "M": 1024**2,
-    "MB": 1024**2,
-    "MIB": 1024**2,
-    "G": 1024**3,
-    "GB": 1024**3,
-    "GIB": 1024**3,
+
+class ByteStandard(StrEnum):
+    IEC = "IEC"
+    SI = "SI"
+
+
+_BYTE_CONFIG: Final = {
+    ByteStandard.IEC: (1024.0, ("B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB")),
+    ByteStandard.SI: (1000.0, ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")),
 }
+
+_base, _units = _BYTE_CONFIG[ByteStandard.IEC]
+# Every IEC name in :data:`_BYTE_CONFIG` (B … YiB) plus the usual shorthands (K, MB, T, …).
+_SIZE_SUFFIXES: dict[str, int] = {
+    alias: int(_base) ** mag
+    for mag, unit in enumerate(_units)
+    for alias in (unit.upper(), f"{unit.strip('iB')}B", unit.strip("iB"))
+}
+
+_SIZE_RE = re.compile(r"^(\d*\.?\d+)\s*([A-Z]*)$")
 
 
 # ---------------------------------------------------------------------------
@@ -75,24 +83,24 @@ _SIZE_SUFFIXES: dict[str, int] = {
 
 
 def parse_size(value: str) -> int:
-    """Parse a human size like ``1M``, ``512K``, ``4GiB`` into bytes."""
-    raw = value.strip().upper()
-    if not raw:
+    """Parse a human, IEC-1024 size into bytes (e.g. ``1M``, ``512K``, ``4 GiB``).
+
+    ``Content-Length`` and ``Content-Range`` in HTTP are plain decimal byte
+    counts (or a structured range), not ``1M``-style values—use :func:`int` or
+    a range parser for those, not this helper.
+    """
+    s = value.strip()
+    if not s:
         raise argparse.ArgumentTypeError("empty size")
-    digits = raw
-    suffix = ""
-    for i, ch in enumerate(raw):
-        if not (ch.isdigit() or ch == "."):
-            digits = raw[:i]
-            suffix = raw[i:]
-            break
-    if suffix not in _SIZE_SUFFIXES:
+    match = _SIZE_RE.match(s.upper())
+    if not match:
+        raise argparse.ArgumentTypeError(f"invalid size format: {value!r}")
+
+    digits, suffix = match.groups()
+    multiplier = _SIZE_SUFFIXES.get(suffix)
+    if multiplier is None:
         raise argparse.ArgumentTypeError(f"unknown size suffix: {suffix!r}")
-    try:
-        n = float(digits) if digits else 0.0
-    except ValueError as exc:
-        raise argparse.ArgumentTypeError(f"invalid size: {value!r}") from exc
-    out = int(n * _SIZE_SUFFIXES[suffix])
+    out = int(float(digits) * multiplier)
     if out <= 0:
         raise argparse.ArgumentTypeError(f"size must be positive: {value!r}")
     return out
@@ -115,17 +123,6 @@ def default_output(url: str) -> str:
     path = urlparse(url).path
     name = path.rstrip("/").rsplit("/", 1)[-1] if path else ""
     return name or "index.html"
-
-
-class ByteStandard(StrEnum):
-    IEC = "IEC"
-    SI = "SI"
-
-
-_BYTE_CONFIG: Final = {
-    ByteStandard.IEC: (1024.0, ("B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB")),
-    ByteStandard.SI: (1000.0, ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")),
-}
 
 
 def format_bytes(size: float, std: ByteStandard = ByteStandard.IEC, prec: int = 1) -> str:
@@ -320,6 +317,17 @@ def resolve_destination(args: argparse.Namespace) -> Path:
     return dest.expanduser().resolve()
 
 
+def _apply_proxy_and_insecure(
+    session: Any,
+    args: argparse.Namespace,
+) -> None:
+    """Set ``proxies`` and ``verify`` on a requests-API session (``requests`` / ``niquests``)."""
+    if args.proxy:
+        session.proxies = {"http": args.proxy, "https": args.proxy}
+    if args.insecure:
+        session.verify = False
+
+
 def _build_session(args: argparse.Namespace) -> tuple[TransportSession, object]:
     """Create a TransportSession for the selected backend.
 
@@ -346,10 +354,7 @@ def _build_niquests(args: argparse.Namespace) -> tuple[TransportSession, object]
     from reget.transport.niquests_adapter import niquests_transport
 
     sess = niquests.Session()
-    if args.proxy:
-        sess.proxies = {"http": args.proxy, "https": args.proxy}
-    if args.insecure:
-        sess.verify = False
+    _apply_proxy_and_insecure(sess, args)
     return niquests_transport(sess), sess
 
 
@@ -359,10 +364,7 @@ def _build_requests(args: argparse.Namespace) -> tuple[TransportSession, object]
     from reget.transport.requests_adapter import requests_transport
 
     sess = requests.Session()
-    if args.proxy:
-        sess.proxies = {"http": args.proxy, "https": args.proxy}
-    if args.insecure:
-        sess.verify = False
+    _apply_proxy_and_insecure(sess, args)
     return requests_transport(sess), sess
 
 
@@ -399,8 +401,6 @@ def _build_urllib3(args: argparse.Namespace) -> tuple[TransportSession, object]:
 
 
 def _close_native(native: object) -> None:
-    from typing import Any
-
     obj: Any = native
     if hasattr(obj, "close") and callable(obj.close):
         obj.close()
