@@ -244,7 +244,11 @@ def open_part_file(plan: StreamPlan, part_path: Path) -> int:
     Returns an ``os``-level file descriptor.  The caller MUST close it.
     """
     part_path.parent.mkdir(parents=True, exist_ok=True)
-    fd = os.open(str(part_path), os.O_RDWR | os.O_CREAT, 0o644)
+    open_flags = os.O_RDWR | os.O_CREAT
+    # Windows: default is text mode; O_BINARY turns off CRLF translation for raw bytes
+    # (os.write would otherwise corrupt network chunk bytes and file hashes / lengths).
+    open_flags |= getattr(os, "O_BINARY", 0)
+    fd = os.open(str(part_path), open_flags, 0o644)
     try:
         if plan.extent is not None and plan.extent > 0:
             allocate_file(fd, total_length=plan.extent)

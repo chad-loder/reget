@@ -97,6 +97,10 @@ class TestPathMaxBoundary:
         dest = "/tmp/small.bin"
         assert path_fits(dest) is True
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="Windows: synthetic ~500 char dest crosses long-path threshold; effective length no longer matches patched path_max",
+    )
     def test_just_barely_under_path_limit(self, tmp_path: Path) -> None:
         dest = self._make_dest(tmp_path, fill=-1)
         with (
@@ -105,6 +109,10 @@ class TestPathMaxBoundary:
         ):
             assert path_fits(dest) is True
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="Windows: synthetic ~500 char dest crosses long-path threshold; effective length no longer matches patched path_max",
+    )
     def test_exactly_at_path_limit(self, tmp_path: Path) -> None:
         dest = self._make_dest(tmp_path, fill=0)
         with (
@@ -113,6 +121,10 @@ class TestPathMaxBoundary:
         ):
             assert path_fits(dest) is True
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="Windows: synthetic ~500 char dest crosses long-path threshold; effective length no longer matches patched path_max",
+    )
     def test_barely_over_path_limit(self, tmp_path: Path) -> None:
         dest = self._make_dest(tmp_path, fill=1)
         with (
